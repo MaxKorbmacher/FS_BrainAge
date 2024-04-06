@@ -17,6 +17,8 @@ pacman::p_load(lme4, nlme, ggplot2, tidyverse, lm.beta, remotes, ggpubr,
 # read data used for demographics
 FS5_train = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5/train.csv")
 FS5_test = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5/test.csv")
+FS7_train = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7/train.csv")
+FS7_test = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7/test.csv")
 # read predictions in test data
 ## XGB
 FS5preds_XGB = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5predictions.csv")
@@ -198,5 +200,51 @@ test_performance$Model = c("XGBoost", "SVM", "LightGBM", "Lasso")
 write.csv(file = "/Users/max/Documents/Projects/FS_brainage/test_performance.csv", test_performance)
 print("#######################################################################")
 print("#######################################################################")
+#
+#
+############################################################################ #
+############################################################################ #
+################# 3) Assess correlation structure in the data ################
+############################################################################ #
+############################################################################ #
+# first remove demographics
+FS5_train = FS5_train %>% select(-eid, -Age, -Sex, -Scanner)
+FS5_test = FS5_test %>% select(-eid, -Age, -Sex, -Scanner)
+FS7_train = FS7_train %>% select(-eid, -Age, -Sex, -Scanner)
+FS7_test = FS7_test %>% select(-eid, -Age, -Sex, -Scanner)
+#
+# just to be sure that the column names are the same
+setequal(names(FS5_train), names(FS7_train))
+setequal(names(FS5_test), names(FS7_test))
+#
+# correlate
+cor_vec_train = c()
+cor_vec_test = c()
+for (i in 1:ncol(FS5_train)){
+  cor_vec_train[i] = cor(FS5_train[,i],FS7_train[,i])
+  cor_vec_test[i] = cor(FS5_test[,i],FS7_test[,i])
+}
+# plot the distribution of Pearson's correlation coefficients
+cor.dat = data.frame(Correlation = c(cor_vec_train,cor_vec_test), 
+                     Data = c(replicate(length(cor_vec_train),"train"), 
+                              replicate(length(cor_vec_test), "test")))
+cor.dat$Data = as.factor(cor.dat$Data)
+
+plot2 = cor.dat %>% 
+  #rename("Data" = "Data", "uncorrected" = "BAGu") %>%
+  melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
+  geom_density_ridges(aes(fill = `Data`)) +
+  scale_fill_manual(values = c("#E69F00","#56B4E9")) +
+  stat_density_ridges(quantile_lines = TRUE, quantiles = 0.5, alpha = .6) +
+  theme_classic(base_size = 15) + theme(legend.position = "bottom") + ylab("") + xlab("Pearson's Correlation Coefficient") + 
+  ggtitle("FreeSurfer v5 and v7 Metric Correlations per Data Set") + xlim(.5,1.1) +
+  theme(axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank()) 
+plot2 = plot2 + annotate("text", label = (paste("Training mean r = ", round(mean(cor_vec_train),3), sep = "")), x = .5, y = 12.5, size = 6, hjust = 0)
+plot2 = plot2 + annotate("text", label = (paste("Test mean r = ", round(mean(cor_vec_test),3), sep = "")), x = .5, y = 11.5, size = 6, hjust = 0)
+ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/Plot2.pdf",plot = plot2, height = 6, width = 6)
+#
 # That's it.
 print("The end.")
+#
+
