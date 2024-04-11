@@ -13,7 +13,7 @@ pacman::p_load(lme4, nlme, ggplot2, tidyverse, lm.beta, remotes, ggpubr,
                ggrepel,PASWR2, reshape2, xgboost, confintr, factoextra, mgcv, 
                itsadug, Metrics, ggpointdensity, viridis, MuMIn,hrbrthemes,
                ggridges, egg, pheatmap, ggtext, RColorBrewer, pmsampsize,
-               Metrics, update = F)
+               Metrics,cocor, update = F)
 # read data used for demographics
 FS5_train = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5/train.csv")
 FS5_test = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5/test.csv")
@@ -21,17 +21,17 @@ FS7_train = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7/train.csv")
 FS7_test = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7/test.csv")
 # read predictions in test data
 ## XGB
-FS5preds_XGB = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5predictions.csv")
-FS7preds_XGB = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7predictions.csv")
+FS5preds_XGB = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS5predictions.csv")
+FS7preds_XGB = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS7predictions.csv")
 ## SVM
-FS5preds_SVM = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5predictions_SVM.csv")
-FS7preds_SVM = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7predictions_SVM.csv")
+FS5preds_SVM = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS5predictions_SVM.csv")
+FS7preds_SVM = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS7predictions_SVM.csv")
 ## Light GBM
-FS5preds_LGBM = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5_LGBM_predictions.csv")
-FS7preds_LGBM = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7_LGBM_predictions.csv")
+FS5preds_LGBM = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS5_LGBM_predictions.csv")
+FS7preds_LGBM = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS7_LGBM_predictions.csv")
 ## Lasso
-FS5preds_Lasso = read.csv("/Users/max/Documents/Projects/FS_brainage/FS5predictions_Lasso.csv")
-FS7preds_Lasso = read.csv("/Users/max/Documents/Projects/FS_brainage/FS7predictions_Lasso.csv")
+FS5preds_Lasso = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS5predictions_Lasso.csv")
+FS7preds_Lasso = read.csv("/Users/max/Documents/Projects/FS_brainage/results/FS7predictions_Lasso.csv")
 # put the predictions in a list
 FS5preds = list(FS5preds_XGB, FS5preds_SVM, FS5preds_LGBM, FS5preds_Lasso)
 FS7preds = list(FS7preds_XGB, FS7preds_SVM, FS7preds_LGBM, FS7preds_Lasso)
@@ -60,6 +60,8 @@ FS7train_preds = list(FS7train_preds_XGB, FS7train_preds_SVM, FS7train_preds_LGB
 ############################################################################ #
 # for sample descriptor, merge dfs
 demo = rbind(FS5_test, FS5_train)
+# number of participants
+nrow(demo)
 # sex distribution
 table(demo$Sex)/nrow(demo)
 # age distribution
@@ -80,11 +82,13 @@ pmsampsize(type = "c", parameters = ncol(FS5_train), rsquared = .6, intercept = 
 print("#######################################################################")
 print("Preliminary assessment: check how different algorithms perform when predicting on TRAINING data")
 print("#######################################################################")
+mods = c("XGBoost", "SVM", "LightGBM", "Lasso")
 for (i in 1:length(FS5train_preds)){
   FS5_tmp = FS5train_preds[[i]]%>% select(eid,Age,pred_age_train)
   FS7_tmp = FS7train_preds[[i]]%>% select(eid,pred_age_train)
   training = merge(FS5_tmp,FS7_tmp, by = "eid")
   names(training) = c("eid", "Age", "FS5", "FS7")
+  print(mods[i])
   print(cor(training))
 }
 print("#######################################################################")
@@ -95,6 +99,7 @@ for (i in 1:length(FS5preds)){
   FS5_tmp = FS5preds[[i]]%>% select(eid,Age,FS5_FS5,FS5_FS7)
   FS7_tmp = FS7preds[[i]]%>% select(eid,FS7_FS7, FS7_FS5)
   test = merge(FS5_tmp,FS7_tmp, by = "eid")
+  print(mods[i])
   print(cor(test))
 }
 print("#######################################################################")
@@ -132,7 +137,7 @@ plot = ggpubr::ggarrange(train_plot_FS5, train_plot_FS7,
           ncol = 2,nrow = 3,
           labels = c("a", "b","c","d","e","f"),
           common.legend = T)
-ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/Plot.pdf",plot = plot, height = 9, width = 11)
+ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/results/Plot.pdf",plot = plot, height = 9, width = 11)
 #
 print("#######################################################################")
 print("#######################################################################")
@@ -160,7 +165,7 @@ train_performance = rbind(FS5_train_performance, FS7_train_performance)
 names(train_performance) = c("R", "adjR2","adjR2corrected","MAE","RMSE")
 train_performance$FSversion = c(5,5,5,5,7,7,7,7)
 train_performance$Model = c("XGBoost", "SVM", "LightGBM", "Lasso")
-write.csv(file = "/Users/max/Documents/Projects/FS_brainage/train_performance.csv", train_performance)
+write.csv(file = "/Users/max/Documents/Projects/FS_brainage/results/train_performance.csv", train_performance)
 print("#######################################################################")
 print("#######################################################################")
 print("Then we look at the test performance across models.")
@@ -197,9 +202,28 @@ test_performance = rbind(FS5toFS5, FS5toFS7, FS7toFS5, FS7toFS7)
 names(test_performance) = c("R", "adjR2","adjR2corrected","MAE","RMSE")
 test_performance$Predictions = c(replicate(4,"FS5toFS5"), replicate(4,"FS5toFS7"), replicate(4,"FS7toFS5"), replicate(4,"FS7toFS7"))
 test_performance$Model = c("XGBoost", "SVM", "LightGBM", "Lasso")
-write.csv(file = "/Users/max/Documents/Projects/FS_brainage/test_performance.csv", test_performance)
+write.csv(file = "/Users/max/Documents/Projects/FS_brainage/results/test_performance.csv", test_performance)
+l1 = train_performance %>% filter(Model=="Lasso")
+l2 = test_performance %>% filter(Model=="Lasso")
+names(l2) = names(l1)
+lasso_perf = rbind(l1,l2)
+write.csv(file = "/Users/max/Documents/Projects/FS_brainage/results/lasso_perf.csv", lasso_perf)
 print("#######################################################################")
 print("#######################################################################")
+#
+print("Compare correlations")
+# start comparing the predictions in the training data
+a = FS7train_preds_Lasso %>% select(-Age)
+all_preds1 = merge(FS5train_preds_Lasso, a, by = "eid")
+cocor(~Age + pred_age_train.x | Age + pred_age_train.y, all_preds1)
+
+# then compare the predictions in the test set
+a = FS7preds_Lasso %>% select(-Age)
+all_preds = merge(FS5preds_Lasso, a, by = "eid")
+cocor(~Age + FS5_FS5 | Age + FS7_FS7, all_preds)
+cocor(~Age + FS5_FS7 | Age + FS7_FS5, all_preds)
+print("The evidence suggests that the differences in age-prediction associations are statistically significant.")
+print("These differences show that FS5 does predict better within version, and FS7 between versions.")
 #
 #
 ############################################################################ #
@@ -242,7 +266,7 @@ plot2 = cor.dat %>%
       axis.ticks.y=element_blank()) 
 plot2 = plot2 + annotate("text", label = (paste("Training mean r = ", round(mean(cor_vec_train),3), sep = "")), x = .5, y = 12.5, size = 6, hjust = 0)
 plot2 = plot2 + annotate("text", label = (paste("Test mean r = ", round(mean(cor_vec_test),3), sep = "")), x = .5, y = 11.5, size = 6, hjust = 0)
-ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/Plot2.pdf",plot = plot2, height = 6, width = 6)
+ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/results/Plot2.pdf",plot = plot2, height = 6, width = 6)
 #
 # That's it.
 print("The end.")
