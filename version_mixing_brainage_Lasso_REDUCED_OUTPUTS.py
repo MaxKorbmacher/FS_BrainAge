@@ -119,6 +119,17 @@ for i in range(number):
     # concatinate the two frames
     dat1 = (pd.concat([FS5_test_portion, FS7_test_portion]))
     test_data[i] = dat1.copy()
+# Now, prep also the FS7 and FS5 data frames for later predictions
+FS5age = FS5_test['Age']
+FS7age = FS7_test['Age']
+FS5_test = FS5_test.drop('eid',axis = 1)
+FS5_test = FS5_test.drop('Age',axis = 1)
+FS5_test = FS5_test.drop('Sex',axis = 1)
+FS5_test = FS5_test.drop('Scanner',axis = 1)
+FS7_test = FS7_test.drop('eid',axis = 1)
+FS7_test = FS7_test.drop('Age',axis = 1)
+FS7_test = FS7_test.drop('Sex',axis = 1)
+FS7_test = FS7_test.drop('Scanner',axis = 1)
 print(number, "randomly sampled data frames created. Training starts for each of these.")
 #
 ####################################
@@ -274,17 +285,15 @@ for m in model:
     #
     #
     ###### from randomly drawn to FS5
-    # define considered cols (not including demographics)
-    pred_cols = FS5_test.columns[~FS5_test.columns.isin(['eid', 'Age', 'Sex', 'Scanner'])]
-    mix2FS5 = result.predict(FS5_test[pred_cols]) 
+    mix2FS5 = result.predict(FS5_test) 
     ###### from randomly drawn to FS7
-    mix2FS7 = result.predict(FS7_test[pred_cols])
+    mix2FS7 = result.predict(FS7_test)
     #
     # calculate model evalutation metrics
     ev3 =  {mean_absolute_error(y_copy['Age'], FS52mix),root_mean_squared_error(y_copy['Age'], FS52mix),r2_score(y_copy['Age'], FS52mix),np.corrcoef(y_copy['Age'], FS52mix)[1,0]}
     ev4 =  {mean_absolute_error(y_copy['Age'], FS72mix),root_mean_squared_error(y_copy['Age'], FS72mix),r2_score(y_copy['Age'], FS72mix),np.corrcoef(y_copy['Age'], FS72mix)[1,0]}
-    ev5 =  {mean_absolute_error(y_copy['Age'], mix2FS5),root_mean_squared_error(y_copy['Age'], mix2FS5),r2_score(y_copy['Age'], mix2FS5),np.corrcoef(y_copy['Age'], mix2FS5)[1,0]}
-    ev6 =  {mean_absolute_error(y_copy['Age'], mix2FS7),root_mean_squared_error(y_copy['Age'], mix2FS7),r2_score(y_copy['Age'], mix2FS7),np.corrcoef(y_copy['Age'], mix2FS7)[1,0]}
+    ev5 =  {mean_absolute_error(FS5age, mix2FS5),root_mean_squared_error(FS5age, mix2FS5),r2_score(FS5age, mix2FS5),np.corrcoef(FS5age, mix2FS5)[1,0]}
+    ev6 =  {mean_absolute_error(FS7age, mix2FS7),root_mean_squared_error(FS7age, mix2FS7),r2_score(FS7age, mix2FS7),np.corrcoef(FS7age, mix2FS7)[1,0]}
     # create vectors with respective metrics
     FS52mix_eval.append(ev3)
     FS72mix_eval.append(ev4)
