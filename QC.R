@@ -4,6 +4,8 @@
 #
 # Overview:
 # 1) check the smallest correlations
+# 1.1) whole sample
+# 1.2) age-stratification
 # 2) check the most important features closely
 # 3) check age correlations at the feature level
 # 4) PCA sorting into thickness, area, volume
@@ -79,6 +81,59 @@ plot2 = cor.dat %>%
 plot2 = plot2 + annotate("text", label = (paste("Training mean r = ", round(mean(cor_vec_train),3), sep = "")), x = .5, y = 12.5, size = 4, hjust = 0)
 plot2 = plot2 + annotate("text", label = (paste("Test mean r = ", round(mean(cor_vec_test),3), sep = "")), x = .5, y = 10, size = 4, hjust = 0)
 #
+# Now, we can also check whether the correlation structure looks different when age-stratifying
+
+corstrat = function(FS5_training_data, FS5_test_data, FS7_training_data, FS7_test_data){
+  # correlate
+  cor_vec_train = c()
+  cor_vec_test = c()
+  for (i in 1:ncol(FS5_training_data)){
+    cor_vec_train[i] = cor(FS5_training_data[,i],FS7_training_data[,i])
+    cor_vec_test[i] = cor(FS5_test_data[,i],FS7_test_data[,i])
+  }
+  # estimate Pearson's correlation coefficients for feature estimates from FS5 and FS7
+  cor.dat = data.frame(Correlation = c(cor_vec_train,cor_vec_test), 
+                       Data = c(replicate(length(cor_vec_train),"train"), 
+                                replicate(length(cor_vec_test), "test")))
+  # make a vector which labels the features (which are correlated between FS5 & FS7)
+  cor.dat$Data = as.factor(cor.dat$Data)
+  plot2 = cor.dat %>% 
+    #rename("Data" = "Data", "uncorrected" = "BAGu") %>%
+    melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
+    geom_density_ridges(aes(fill = `Data`)) +
+    scale_fill_manual(values = c("#E69F00","#56B4E9")) +
+    stat_density_ridges(quantile_lines = TRUE, quantiles = 0.5, alpha = .6) +
+    theme_classic(base_size = 12) + theme(legend.position = "bottom") + ylab("") + xlab("Pearson's Correlation Coefficient") + 
+    xlim(.5,1.1) +
+    theme(axis.text.y=element_blank(), 
+          axis.ticks.y=element_blank()) 
+  plot2 = plot2 + annotate("text", label = (paste("Training mean r = ", round(mean(cor_vec_train, na.rm=T),3), sep = "")), x = .5, y = 12.5, size = 4, hjust = 0)
+  plot2 = plot2 + annotate("text", label = (paste("Test mean r = ", round(mean(cor_vec_test, na.rm=T),3), sep = "")), x = .5, y = 11.5, size = 4, hjust = 0)
+  #plot2 = plot2 + annotate("text", label = (paste("training N = ", nrow(FS5_training_data),"; test N = ", nrow(FS5_test_data), sep = "")), x = .5, y = 10.5, size = 4, hjust = 0)
+  return(plot2)
+}
+# Now, we can bin the data into 3 even age bins, which makes sense in an age range of around 50 to 80 (a bin for every decade)
+# (Remember, age distributions are the same for FS5&7, as these are the same participants.)
+FS5_train %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% summarise(M = mean(Age))
+FS5_test %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% summarise(M = mean(Age))
+# create lists of data frames based on age bins and remove variables which are not supposed to be correlated
+FS5_train2 = FS5_train %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% select(-eid, -Age, -Sex, -Scanner, -Age_Groups)
+FS5_test2 = FS5_test %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% select(-eid, -Age, -Sex, -Scanner, -Age_Groups)
+FS7_train2 = FS7_train %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% select(-eid, -Age, -Sex, -Scanner, -Age_Groups)
+FS7_test2 = FS7_test %>% mutate(Age_Groups = ntile(Age, n=3)) %>% group_by(Age_Groups) %>% select(-eid, -Age, -Sex, -Scanner, -Age_Groups)
+FS5_train2 = group_split(FS5_train2)
+FS7_train2 = group_split(FS7_train2)
+FS5_test2 = group_split(FS5_test2)
+FS7_test2 = group_split(FS7_test2)
+# run the age splits though a loop
+stratplots = list()
+for (i in 1:length(FS5_train2)){
+  stratplots[[i]] = corstrat(FS5_train2[[i]], FS5_test2[[i]], FS7_train2[[i]], FS7_test2[[i]])
+}
+cor_strat = ggpubr::ggarrange(plotlist = stratplots, common.legend = T, legend = "bottom", labels = c("Younger than 60", "60-70", "Older than 70"), hjust = -1)
+cor_strat = annotate_figure(cor_strat, top = text_grob("Age-Stratefied FreeSurfer v5 and v7 Metric Correlations per Data Set", color = "black", face = "bold", size = 14))
+ggsave(filename = "/Users/max/Documents/Projects/FS_brainage/results/CorStrat.pdf",plot = cor_strat, height = 8, width = 10)
+rm(cor_strat, FS5_train2, FS5_test2, FS7_train2, FS7_test2)
 #
 #
 #
