@@ -196,7 +196,7 @@ cor_vec_test_FS7 = c()
 for (i in 1:ncol(FS5_train1)){
   cor_vec_train_FS5[i] = cor(FS5_train1[,i],FS5_train$Age)
   cor_vec_test_FS5[i] = cor(FS5_test1[,i],FS5_test$Age)
-  cor_vec_test_FS7[i] = cor(FS5_train1[,i],FS7_train$Age)
+  cor_vec_test_FS7[i] = cor(FS7_train1[,i],FS7_train$Age)
   cor_vec_train_FS7[i] = cor(FS7_test1[,i],FS7_test$Age)
 }
 # make data frames for FS5 and FS7 train & test age-feature associations
@@ -206,10 +206,23 @@ cor.dat.FS5 = data.frame(Correlation = c(cor_vec_train_FS5,cor_vec_test_FS5),
 cor.dat.FS7 = data.frame(Correlation = c(cor_vec_train_FS7,cor_vec_test_FS7), 
                          Data = as.factor(c(replicate(length(cor_vec_train_FS7),"train"), 
                                   replicate(length(cor_vec_test_FS7), "test")))) #Feature = names(FS7_train1)
+Age_Correlations = data.frame(Names = names(FS5_train1), FS5_Correlations = cor.dat.FS5, FS7_Correlations = cor.dat.FS7$Correlation)
+write.csv(Age_Correlations,"/Users/max/Documents/Projects/FS_brainage/results/age_correlations.csv")
+# print the training data correlations only (can also be ranked)
+Age_Correlations %>% filter(FS5_Correlations.Data == "train")
+# check only volumes
+Age_Correlations %>% filter(FS5_Correlations.Data == "train") %>% dplyr::filter(grepl("volume",Names))
+# check only area
+Age_Correlations %>% filter(FS5_Correlations.Data == "train") %>% dplyr::filter(grepl("area",Names))
+# check superior areas only
+Age_Correlations %>% filter(FS5_Correlations.Data == "train") %>% dplyr::filter(grepl("area",Names)) %>% dplyr::filter(grepl("superior",Names)) 
+# check inferior areas only
+Age_Correlations %>% filter(FS5_Correlations.Data == "train") %>% dplyr::filter(grepl("area",Names)) %>% dplyr::filter(grepl("inferior",Names)) 
+#
 # plots
 plot3.1 = cor.dat.FS5 %>% 
   #rename("Data" = "Data", "uncorrected" = "BAGu") %>%
-  reshape::melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
+  reshape2::melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
   geom_density_ridges(aes(fill = `Data`)) +
   scale_fill_manual(values = c("#E69F00","#56B4E9")) +
   stat_density_ridges(quantile_lines = TRUE, quantiles = 0.5, alpha = .6) +
@@ -221,7 +234,7 @@ plot3.1 = plot3.1 + annotate("text", label = (paste("Training mean r = ", round(
 plot3.1 = plot3.1 + annotate("text", label = (paste("Test mean r = ", round(mean(cor_vec_test_FS5),3), sep = "")), x = -.7, y = 5.5, size = 4, hjust = 0)
 plot3.2 = cor.dat.FS7 %>% 
   #rename("Data" = "Data", "uncorrected" = "BAGu") %>%
-  reshape::melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
+  reshape2::melt(id.vars = "Data") %>% ggplot(aes(x = value, y = variable, fill = `Data`)) +
   geom_density_ridges(aes(fill = `Data`)) +
   scale_fill_manual(values = c("#E69F00","#56B4E9")) +
   stat_density_ridges(quantile_lines = TRUE, quantiles = 0.5, alpha = .6) +
